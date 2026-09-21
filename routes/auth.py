@@ -1,6 +1,6 @@
 import jwt
 from flask import request, jsonify,Blueprint
-from models import db, Utilisateur
+from models import db, Utilisateur, Produit
 from datetime import datetime, timedelta
 
 # hashage du mot de passe 
@@ -39,7 +39,7 @@ def generate_token():
 
         # Utilisateur inexistant ou mot de passe incorrect
     if not utilisateur or  not check_password_hash(
-    utilisateur.mot_de_passe,
+    utilisateur.password_hash,
     mot_de_passe):
             return jsonify({
                 'error': 'Email ou mot de passe invalide.'
@@ -59,42 +59,37 @@ def generate_token():
             algorithm="HS256"
         )
     return jsonify({"token": token}), 200
+    
 @authenti_bp.route('/api/auth/register', methods=['POST'])
 def add_users():
     try:
         body = request.get_json()
-        if not check_fields(body, {'email','nom', 'prenom', 'age','mot_de_passe','matricule'}):
+        if not check_fields(body, {'email','nom','mot_de_passe'}):
             # S'il manque un paramètre on retourne une erreur 400
             return jsonify({'error': "Missing fields."}), 400
             
             
-        utilisateur = Utilisateur.query.filter_by(
-            matricule=body['matricule']
+        utilisateur_existant = Utilisateur.query.filter_by(
+            email=body['email']
         ).first()
-        if  utilisateur:
-            return jsonify({'error': 'Ce matricule existe deja'}), 404
+        if  utilisateur_existant:
+            return jsonify({'error': 'Ce mail existe deja'}), 404
             
             #creation nouvelle utilisateur
         nouvel_utilisateur = Utilisateur(
-
-            matricule=body['matricule'],
             nom=body['nom'],
-            prenom=body['prenom'],
             email=body['email'],
-            age=body['age'],
-            mot_de_passe=generate_password_hash(body['mot_de_passe'])
-
+            role=body.get('role','client'),
+            password_hash=generate_password_hash(body['mot_de_passe'])
         )
-
-
-       
         db.session.add(nouvel_utilisateur)
 
         db.session.commit()
     
         return jsonify({
             'message': 'Utilisateur créé avec succès',
-            'matricule': nouvel_utilisateur.matricule
+            'id': nouvel_utilisateur.id,
+            'email': nouvel_utilisateur.email
              }), 201
 
 
