@@ -3,6 +3,7 @@ from flask import Flask, request, jsonify
 from models import db, Utilisateur,Produit
 from routes.auth import authenti_bp
 from routes.produit import produits_bp
+from routes.commande import commandes_bp
 
 
 JWT_SECRET = "d3fb12750c2eff92120742e1b334479e"
@@ -19,6 +20,7 @@ db.init_app(app)
 
 app.register_blueprint(authenti_bp)
 app.register_blueprint(produits_bp)
+app.register_blueprint(commandes_bp)
 
 
 #Remplissage de la base digimarket.db avec quelques données de test. 

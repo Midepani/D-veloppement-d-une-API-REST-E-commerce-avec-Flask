@@ -15,7 +15,7 @@ class Utilisateur(db.Model):
     role = db.Column(db.String(20),nullable=False,default='client')
     date_creation = db.Column(db.DateTime,nullable=False,default=datetime.utcnow)
     
-def __repr__(self):
+    def __repr__(self):
         return f'<Utilisateur {self.nom}>'
         
         
@@ -32,4 +32,34 @@ class Produit(db.Model):
     
     def __repr__(self):
         return f'<Produit {self.nom}>'
+        
+class Commande(db.Model):
+    __tablename__ = 'order'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    utilisateur_id =  db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    date_commande = db.Column(db.DateTime,nullable=False,default=datetime.utcnow)
+    adresse_livraison=db.Column(db.String(250), nullable=False)
+    statut=db.Column(db.String(50), nullable=False, default='en attente')
+    # Relation avec les éléments du panier
+    items = db.relationship('LigneCommande', backref='commande', lazy=True, cascade='all, delete-orphan')
+    utilisateur = db.relationship('Utilisateur', backref='commandes')
+    
+    def __repr__(self):
+        return f'<Commande {self.id}>'
+
+class LigneCommande(db.Model):
+    __tablename__ = 'order_item'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    commande_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
+    produit_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    quantite = db.Column(db.Integer, default=1)
+    prix_unitaire = db.Column(db.Float, default=1)
+    
+    # Relation avec le produit
+    produit = db.relationship('Produit', backref='order_item')
+    
+    def __repr__(self):
+        return f'<LigneCommande {self.id}, Produit: {self.produit_id}, Qty: {self.quantite}>'
 
