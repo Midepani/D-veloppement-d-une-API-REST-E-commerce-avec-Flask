@@ -227,3 +227,114 @@ def ajouter_produit_commande(decoded, id):
         return jsonify({
             'error': str(e)
         }), 500
+
+
+@commandes_bp.route('/api/commandes/<id>', methods=['PATCH'])
+@token_exigé
+def modifier_statut_commande(decoded, id):
+    try:
+        # Seul un administrateur peut modifier le statut
+        if decoded.get("role") != "admin":
+            return jsonify({
+                'error': 'Accès interdit. Administrateur requis.'
+            }), 403
+
+        body = request.get_json()
+
+        if not body or 'statut' not in body:
+            return jsonify({
+                'error': 'Le champ statut est obligatoire.'
+            }), 400
+
+        nouveau_statut = body['statut']
+
+        statuts_autorises = {
+            'en attente',
+            'validée',
+            'expédiée',
+            'annulée'
+        }
+
+        if nouveau_statut not in statuts_autorises:
+            return jsonify({
+                'error': 'Statut invalide.'
+            }), 400
+
+        # Recherche de la commande
+        commande = Commande.query.filter_by(id=id).first()
+
+        if not commande:
+            return jsonify({
+                'error': 'Commande non trouvée.'
+            }), 404
+
+        # Traitement particulier lors de la validation
+        if nouveau_statut == 'validée':
+
+            # Évite de retirer le stock une deuxième fois
+            if commande.statut != 'en attente':
+                return jsonify({
+                    'error': 'Seule une commande en attente peut être validée.'
+                }), 400
+
+            # Récupération des produits de la commande
+            lignes = LigneCommande.query.filter_by(
+                commande_id=commande.id
+            ).all()
+
+            if not lignes:
+                return jsonify({
+                    'error': 'Impossible de valider une commande sans produit.'
+                }), 400
+
+            # Vérification de TOUT le stock avant modification
+            for ligne in lignes:
+
+                produit = Produit.query.filter_by(
+                    id=ligne.produit_id
+                ).first()
+
+                if not produit:
+                    return jsonify({
+                        'error': f'Produit {ligne.produit_id} non trouvé.'
+                    }), 404
+
+                if produit.quantite_stock is None:
+                    return jsonify({
+                        'error': f'Stock non défini pour le produit {produit.nom}.'
+                    }), 400
+
+                if produit.quantite_stock < ligne.quantite:
+                    return jsonify({
+                        'error': f'Stock insuffisant pour le produit {produit.nom}.',
+                        'stock_disponible': produit.quantite_stock,
+                        'quantite_demandee': ligne.quantite
+                    }), 400
+
+            # Si tous les produits sont disponibles,
+            # on diminue le stock
+            for ligne in lignes:
+
+                produit = Produit.query.filter_by(
+                    id=ligne.produit_id
+                ).first()
+
+                produit.quantite_stock -= ligne.quantite
+
+        # Modification du statut
+        commande.statut = nouveau_statut
+
+        db.session.commit()
+
+        return jsonify({
+            'message': 'Statut de la commande modifié avec succès.',
+            'id': commande.id,
+            'statut': commande.statut
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+
+        return jsonify({
+            'error': str(e)
+        }), 500
