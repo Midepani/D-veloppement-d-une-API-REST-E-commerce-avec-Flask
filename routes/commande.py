@@ -48,27 +48,52 @@ def token_exigé(f):
 @commandes_bp.route('/api/commandes', methods=['GET'])
 @token_exigé
 def recuplist_Commande(decoded):
-    
+  
+
     if decoded.get("role") == "admin":
         listecoma = Commande.query.all()
     else:
         listecoma = Commande.query.filter_by(
             utilisateur_id=decoded.get("id_utilisateur")
         ).all()
-    
+
     result = []
-    for x in listecoma:
+
+    for commande in listecoma:
+
+        lignes = LigneCommande.query.filter_by(
+            commande_id=commande.id
+        ).all()
+
+        produits = []
+
+        for ligne in lignes:
+
+            produit = Produit.query.filter_by(
+                id=ligne.produit_id
+            ).first()
+
+            produits.append({
+                "produit_id": ligne.produit_id,
+                "nom_produit": produit.nom if produit else None,
+                "quantite": ligne.quantite,
+                "prix_unitaire": ligne.prix_unitaire
+            })
+
         result.append({
-            "id": x.id,
-            "utilisateur_id": x.utilisateur_id,
-            "date_commande": x.date_commande.isoformat() if x.date_commande else None,
-            "adresse_livraison": x.adresse_livraison,
-            "statut": x.statut
-           
+            "id": commande.id,
+            "utilisateur_id": commande.utilisateur_id,
+            "date_commande": (
+                commande.date_commande.isoformat()
+                if commande.date_commande else None
+            ),
+            "adresse_livraison": commande.adresse_livraison,
+            "statut": commande.statut,
+            "produits": produits
         })
-    return jsonify(result), 200         
-     
-   
+
+    return jsonify(result), 200
+
 @commandes_bp.route('/api/commandes/<id>', methods=['GET'])
 @token_exigé
 def recup_Commandeid(decoded,id):
