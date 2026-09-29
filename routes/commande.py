@@ -363,3 +363,36 @@ def modifier_statut_commande(decoded, id):
         return jsonify({
             'error': str(e)
         }), 500
+
+@commandes_bp.route('/api/commandes/<id>/lignes', methods=['GET'])
+@token_exigé
+def consulter_lignes_commande(decoded, id):
+    try:
+        commande = Commande.query.get(id)
+
+        if not commande:
+            return jsonify({"message": "Commande introuvable"}), 404
+
+        # Un client ne peut voir que ses propres commandes
+        if decoded.get("role") != "admin":
+            if commande.utilisateur_id != decoded.get("id_utilisateur"):
+                return jsonify({"message": "Accès refusé"}), 403
+
+        lignes = LigneCommande.query.filter_by(
+            commande_id=id
+        ).all()
+
+        resultat = []
+
+        for ligne in lignes:
+            resultat.append({
+                "id": ligne.id,
+                "produit_id": ligne.produit_id,
+                "quantite": ligne.quantite,
+                "prix_unitaire": ligne.prix_unitaire
+            })
+
+        return jsonify(resultat), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

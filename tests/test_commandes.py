@@ -429,3 +429,57 @@ def test_admin_ne_peut_pas_valider_si_stock_insuffisant():
         stock_apres = response_produit.json['quantite_stock']
 
         assert stock_apres == stock_avant
+
+
+def test_client_peut_consulter_lignes_commande():
+    app.config['TESTING'] = True
+
+    with app.test_client() as client:
+
+        # Connexion du client
+        token_client = obtenir_token_client(client)
+
+        # Création d'une commande
+        response_commande = client.post(
+            '/api/commandes',
+            headers={
+                'Authorization': token_client
+            },
+            json={
+                'utilisateur_id': 1,
+                'adresse_livraison': '10 rue de Test, 76000 Rouen'
+            }
+        )
+
+        assert response_commande.status_code == 201
+
+        id_commande = response_commande.json['id']
+
+        # Ajout d'un produit à la commande
+        response_ajout = client.post(
+            f'/api/commandes/{id_commande}/produits',
+            headers={
+                'Authorization': token_client
+            },
+            json={
+                'produit_id': 1,
+                'quantite': 2
+            }
+        )
+
+        assert response_ajout.status_code == 201
+
+        # Consultation des lignes de la commande
+        response_lignes = client.get(
+            f'/api/commandes/{id_commande}/lignes',
+            headers={
+                'Authorization': token_client
+            }
+        )
+
+        assert response_lignes.status_code == 200
+
+        # Vérification de la ligne
+        assert len(response_lignes.json) == 1
+        assert response_lignes.json[0]['produit_id'] == 1
+        assert response_lignes.json[0]['quantite'] == 2
